@@ -29,7 +29,7 @@ void KeyPad_Init(void)
   GPIO_PORTB_DEN_R|= 0x7F;*/
 }
 
-uint8 KeyPad_Read(void)
+uint8 KeyPad_Read_task1(void)
 {
   uint8 table[4][4]={
     {'1','2','3','+'},
@@ -63,8 +63,17 @@ uint32 concatenate(uint32 x, uint32 y)
     return shift;
 } 
 
-uint32 checkFlag(uint8 x){
-    uint8 op[] = {'+', '-', '/', 'x','='};
+uint32 checkFlag(uint8 x, uint16 fflag){
+    uint8 op[5]= {'+', '-', '/', 'x','='};
+    
+    if(fflag == 1){
+      for(int i=2;i<5;i++){
+        if(x == op[i]){
+            return 0;
+        }
+        return 1;
+      }
+    }
     for(int i=0;i<5;i++){
         if(x == op[i]){
             return 0;
@@ -73,21 +82,60 @@ uint32 checkFlag(uint8 x){
     return 1;
 }
 
-uint32 getDigits(uint8_ptr op){
+int32 getDigits_task1(uint8_ptr op, uint16 firstflag){
   uint32 counter = 0;
   uint32 digit = 0;
   uint8 x;
   uint32 y;
+  uint8 sign;
   uint32 flag = 1;
   
-  while((counter<6) && (flag == 1)){
-    //printf("d\n");   
-    x = KeyPad_Read();
+  x = KeyPad_Read_task1();
+  
+  
+  if(firstflag == 1){
+    
+    LCD_Cmd(0x01);		
+    LCD_Cmd(0x80);               //Force the cursor to beginning of 1st line
+    delayMs(500);
+  }
+  
+  flag = checkFlag(x,firstflag);
+  
+  if(flag == 0){
+      LCD_Cmd(0x01);
+      LCD_Cmd(0x80);               //Force the cursor to beginning of 1st line
+      delayMs(500);
+      *op = x;
+      LCD_Write_String("Illegal Input");
+      return 'A';
+    }
+  
+  if(x =='F'){
+    LCD_Cmd(0x01);
+    return 'F';      
+  }
+  
+  LCD_Write_Data(x);
+  delay(0.3);
+  if(x == '-'){
+    sign = '-';
+  }else if(x == '+'){
+    
+  }else{
+    y = x - '0';
+    digit = concatenate(digit,y);
+    counter++;
+  }
+  
+  
+  while((counter<6) && (flag == 1)){ 
+    x = KeyPad_Read_task1();
+    LCD_Write_Data(x);
     delay(0.3);
     
-    if(x != 'A'){ 
-      
-      flag = checkFlag(x);
+    if(x != 'A'){     
+      flag = checkFlag(x,0);
     
     if(counter == 5 || flag == 0){
       *op = x;
@@ -96,50 +144,41 @@ uint32 getDigits(uint8_ptr op){
     }
     y = x - '0';
     digit = concatenate(digit,y);
-    //x = KeyPad_Read();
     counter++;
-    //delay(0.5);
-    }else{}
+    }else{
+      
+    }
+  }
+  if(sign == '-'){
+    return (digit *-1);
   }
   return digit;
 }
 
-
-/*uint32 GetDigits(){
-  uint8 op[] = {'+', '-', '/', 'x'};
-  uint32 counter = 1;
-  uint32 digit = 0;
-  uint8 x = KeyPad_Read();
-  uint32 y;
-  while(counter<6){
-    counter++;
-    y = x - '0';
-    digit = concatenate(digit,y);
-    x = KeyPad_Read();
-    //delay(0.5);
-  }
-  return digit;
-}
-  /*if(x != op[0] && x != op[1] && x != op[2] && x != op[3]){
-    digit = x;
-  }
-  else{
-    //return "invalid input";
-  }
-  while(x != op[0] && x != op[1] && x != op[2] && x != op[3]){
+uint8 ReadInputs_task1(){
     
-  }
-}*/
-void ReadInputs(){
     uint8_ptr op;
     uint8 e;
     op = &e;
-    uint32 x = getDigits(op);
+    int32 x = getDigits_task1(op,1);
+    if(x == 'A'){
+      return 'A';
+    }
+    if(x == 'F'){
+      return 'F';
+    }
     
     uint8_ptr op2;
     uint8 e2;
     op2 = &e2;
-    uint32 y = getDigits(op2);
+    int32 y = getDigits_task1(op2,0);
+    
+    if(x == 'A'){
+      return 'A';
+    }
+    if(x == 'F'){
+      return 'F';
+    }
     
     double64 result;
     
@@ -149,7 +188,7 @@ void ReadInputs(){
         break;
         
       case '-':
-        result = x-y;
+        result = (int32)x-(int32)y;
         break;
         
       case '/':
@@ -162,20 +201,15 @@ void ReadInputs(){
     } 
     
     uint8_ptr equ;
-    uint8 buffer[50];
+    //uint8 buffer[50];
     uint8 buffer2[50];
-    sprintf(buffer, "%d %c %d %c ",x, e, y, e2);
+    //sprintf(buffer, "%d %c %d %c ",x, e, y, '=');
     sprintf(buffer2, "%f ",result);
-    
-    
-    
-    LCD_Cmd(0x01);		
-    LCD_Cmd(0x80);               //Force the cursor to beginning of 1st line
-    delayMs(500);											
-    LCD_Write_String(buffer);
+    											
+    //LCD_Write_String(buffer);
     LCD_Cmd(0xC0);
     LCD_Write_String(buffer2);
-    delayMs(500);   
-    //printf("%s \n",buffer);
-    //printf("%d %c %d %c %f \n", x, e, y, e2, result);
+
+    delayMs(500);
+    return 'B';
 }
